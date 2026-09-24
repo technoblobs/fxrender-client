@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = ["core", "cli", "gui/src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/technoblobs/fxrender-client"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "io-std", "time"] }
+thiserror = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+futures-util = "0.3"
+async-stream = "0.3"
+bytes = "1"
+keyring = "4.0.0-beta.1"
+clap = { version = "4", features = ["derive"] }
+dirs = "5"
+anyhow = "1"
+sha2 = "0.10"

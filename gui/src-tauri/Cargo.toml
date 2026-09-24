@@ -1,0 +1,26 @@
+[package]
+name = "fxrender-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "FXRender desktop app — upload, render, and monitor Blender jobs from a native window"
+
+[lib]
+name = "fxrender_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+fxrender-core = { path = "../../core" }
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+uuid.workspace = true
+futures-util.workspace = true
+chrono.workspace = true
+notify = "6"
