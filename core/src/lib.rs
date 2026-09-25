@@ -16,6 +16,7 @@
 //! # }
 //! ```
 
+pub mod blender;
 mod client;
 mod error;
 pub mod models;

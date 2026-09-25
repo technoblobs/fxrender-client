@@ -63,6 +63,29 @@ fn keychain_entry() -> Result<keyring::Entry> {
         .map_err(|e| Error::Other(format!("opening system keychain: {e}")))
 }
 
+/// Token for a command. `FXRENDER_TOKEN` wins and is not written to the keyring.
+/// An empty value is ignored so a blank env var still falls through to the keychain.
+pub fn resolve_token() -> Result<Option<String>> {
+    if let Ok(token) = std::env::var("FXRENDER_TOKEN") {
+        let token = token.trim().to_string();
+        if !token.is_empty() {
+            return Ok(Some(token));
+        }
+    }
+    get_token()
+}
+
+/// API base URL. `FXRENDER_API_URL` overrides the config file.
+pub fn resolve_api_url() -> Result<String> {
+    if let Ok(url) = std::env::var("FXRENDER_API_URL") {
+        let url = url.trim().trim_end_matches('/').to_string();
+        if !url.is_empty() {
+            return Ok(url);
+        }
+    }
+    Ok(load_config()?.api_url)
+}
+
 pub fn get_token() -> Result<Option<String>> {
     match keychain_entry()?.get_password() {
         Ok(token) => Ok(Some(token)),

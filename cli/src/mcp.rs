@@ -9,7 +9,7 @@ use std::time::Duration;
 
 use fxrender_core::models::{EstimateRequest, JobCreate, JobFile, MovieRequest};
 use fxrender_core::store;
-use fxrender_core::{Client, DEFAULT_BASE_URL};
+use fxrender_core::Client;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
@@ -24,6 +24,8 @@ the user signs in with `fxr login` (or FXRENDER_TOKEN). \
 Workflow: whoami → estimate (optional) → render_file (returns a job_id, does not wait) → \
 job_status every 5+ seconds until status is completed → download_job to a local folder. \
 render_file reads a local .blend/.zip path (or an existing asset_id). \
+blender_version may be 4.2, 4.5, 5.0, or 5.3-alpha. Omit it to read the file header \
+(5.3 files need 5.3-alpha; Blender 4.5 cannot open them). \
 Default output is EXR (linear original). PNG/JPEG/etc. are converted stills, not masters. \
 download_job kind=original never includes the source .blend. \
 Renders spend GPU time on the user's account — check whoami remaining_seconds first. \
@@ -112,7 +114,7 @@ impl FxrenderMcp {
     }
 
     #[tool(
-        description = "Upload a local .blend/.zip (or reuse asset_id) and submit a render job. Returns job_id immediately — does not wait for the farm. Poll job_status until completed, then download_job. If frame_start/frame_end are omitted, uses the scene range from inspect. Default format is exr (originals)."
+        description = "Upload a local .blend/.zip (or reuse asset_id) and submit a render job. Returns job_id immediately — does not wait for the farm. Poll job_status until completed, then download_job. If frame_start/frame_end are omitted, uses the scene range from inspect. blender_version: 4.2, 4.5, 5.0, or 5.3-alpha; omit to use the file header. Default format is exr (originals). Engine defaults to cycles."
     )]
     async fn render_file(&self, Parameters(p): Parameters<RenderArgs>) -> Result<String, String> {
         let client = api_client()?;
@@ -135,6 +137,11 @@ impl FxrenderMcp {
             .unwrap_or_else(|| "exr".into())
             .to_ascii_lowercase();
         let mut req = JobCreate::for_asset(asset_id);
+        req.blender_version = resolve_blender_version(
+            p.blender_version.as_deref(),
+            p.path.as_deref(),
+            asset.blender_saved.as_deref(),
+        )?;
         req.engine = p.engine.unwrap_or_else(|| "cycles".into());
         req.output_format = output_format.clone();
         req.samples = p.samples.unwrap_or(128);
@@ -154,6 +161,8 @@ impl FxrenderMcp {
             "frame_start": job.frame_start,
             "frame_end": job.frame_end,
             "output_format": output_format,
+            "blender_version": req.blender_version,
+            "engine": req.engine,
             "reused_upload": reused,
             "note": "Job submitted. Poll job_status at most once every 5 seconds until status is completed, failed, or cancelled. Then call download_job. Do not wait inside this tool.",
         }))
@@ -376,7 +385,10 @@ struct RenderArgs {
     resolution_x: Option<i64>,
     resolution_y: Option<i64>,
     samples: Option<i64>,
+    /// cycles (default) or eevee.
     engine: Option<String>,
+    /// 4.2, 4.5, 5.0, or 5.3-alpha. Omit to read the .blend header.
+    blender_version: Option<String>,
     /// exr (original, default), png, jpeg, tiff, webp.
     output_format: Option<String>,
     fps: Option<i64>,
@@ -429,24 +441,35 @@ struct PageArgs {
 
 // ---- helpers ---------------------------------------------------------------
 
+fn resolve_blender_version(
+    requested: Option<&str>,
+    path: Option<&str>,
+    saved: Option<&str>,
+) -> Result<String, String> {
+    use fxrender_core::blender::{
+        blender_version_from_saved, normalize_blender_version, sniff_blend_file,
+    };
+    if let Some(raw) = requested {
+        let choice = normalize_blender_version(raw)?;
+        if choice != "auto" {
+            return Ok(choice);
+        }
+    }
+    if let Some(path) = path {
+        if let Some(found) = sniff_blend_file(std::path::Path::new(path)) {
+            return Ok(found);
+        }
+    }
+    Ok(blender_version_from_saved(saved))
+}
+
 fn api_client() -> Result<Client, String> {
-    let token = std::env::var("FXRENDER_TOKEN")
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .or_else(|| store::get_token().ok().flatten())
+    let token = store::resolve_token()
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| {
             "not logged in — run `fxr login` with a token from https://fxrender.com (API Tokens), or set FXRENDER_TOKEN".to_string()
         })?;
-    let api_url = std::env::var("FXRENDER_API_URL")
-        .ok()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| {
-            store::load_config()
-                .map(|c| c.api_url)
-                .unwrap_or_else(|_| DEFAULT_BASE_URL.to_string())
-        });
+    let api_url = store::resolve_api_url().map_err(|e| e.to_string())?;
     Client::new(api_url, token).map_err(err)
 }
 

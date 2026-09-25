@@ -30,11 +30,43 @@ If you lose it, revoke it on the site and create a new one. Then run `fxr login`
 
 ## 2. Requirements
 
-- [Rust](https://rustup.rs/) 1.77 or newer (`rustc`, `cargo` on your `PATH`)
+- [Rust](https://rustup.rs/) 1.77 or newer (`rustc` and `cargo` on your `PATH`)
+- A C linker, which the Rust installer sets up (see below)
 - A working network path to `https://api.fxrender.com`
 - macOS, Windows, or Linux (desktop Linux with a secret service for login)
 
-No Blender install is required on your machine. Rendering happens on the farm.
+No Blender install is required on your machine. Rendering happens on the farm. You do not need to learn Rust. `cargo` is only the command that compiles `fxr`.
+
+### Install Rust
+
+Use [rustup](https://rustup.rs/). Skip this if `cargo --version` already prints 1.77 or newer.
+
+macOS or Linux, in a terminal:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Accept the defaults. Then open a new terminal so `cargo` is on your `PATH`.
+
+Windows: download and run `rustup-init.exe` from [https://rustup.rs](https://rustup.rs). When it asks for a C++ build tool, accept the Visual Studio Build Tools install. Close the terminal and open a new one.
+
+Check:
+
+```bash
+rustc --version
+cargo --version
+```
+
+Both commands must be found. If the shell says `cargo: command not found`, the terminal was opened before rustup finished. Open a new one.
+
+A linker is required to finish the build:
+
+| OS | What provides it |
+|---|---|
+| macOS | Xcode Command Line Tools. If the build says `linker cc not found`, run `xcode-select --install`. |
+| Windows | The Visual Studio Build Tools that rustup offered. |
+| Linux | A C compiler. On Ubuntu or Debian: `sudo apt install build-essential pkg-config`. |
 
 ---
 
@@ -120,7 +152,47 @@ fxr logout
 
 `fxr` never prints the token. `whoami` only shows name, email, and quota.
 
-Linux note: a headless server with no Secret Service cannot save a token. Use a desktop session, or keep the token in your own secret manager and pass `--token` only if you re-login each time.
+The desktop app uses this same store. Signing in with either one signs in the other, on that computer.
+
+### Why a keyring, not an encrypted file
+
+The token is a secret. The operating system keyring is the right place on a machine you use by hand:
+
+| OS | What locks the token |
+|---|---|
+| macOS | Keychain. Service `fxrender-client`, account `default`. |
+| Windows | Credential Manager, same service and account. |
+| Linux desktop | Secret Service. GNOME Keyring or KWallet provide it. |
+
+`fxr` does not encrypt the token with a key built into the program. That key would ship inside every copy of the binary, so anyone with the file and the binary could read the token. A private file that "only `fxr` can decrypt" is not protection.
+
+`fxr logout` deletes the keyring entry. It does not revoke the token on the website. Revoke a leaked token at [fxrender.com](https://fxrender.com) → API Tokens.
+
+### Run on a server
+
+A server has no unlocked keyring, so `fxr login` cannot save a token there. Do not copy the macOS keychain. Pass the token in the environment for that process. It is not written to disk.
+
+```bash
+export FXRENDER_TOKEN='fxr_live_...'
+# optional, if you are not using the public API
+export FXRENDER_API_URL='https://api.fxrender.com/v1'
+
+fxr whoami
+fxr render /path/shot.blend --frame-start 1 --frame-end 1 --output-format png --follow
+fxr jobs files <job-id> --download /var/fxrender/out
+```
+
+`FXRENDER_TOKEN` is used instead of the keyring when it is set. Unset it, or leave it empty, to use the keyring again. Put the export in the service unit, CI secret, or secret manager that starts the job. Do not commit it, and do not pass it as a command-line argument (`fxr login --token` lands in shell history).
+
+A systemd service can take the token from a root-only file without `fxr` storing anything:
+
+```ini
+[Service]
+EnvironmentFile=/etc/fxrender/token.env
+ExecStart=/usr/local/bin/fxr render /data/shot.blend --frame-start 1 --frame-end 1 --follow
+```
+
+`/etc/fxrender/token.env` contains one line, `FXRENDER_TOKEN=fxr_live_...`, and is mode `0600`. That file is the server's secret store. `fxr` only reads the variable.
 
 ---
 
@@ -204,7 +276,7 @@ fxr render <asset-id> --frame-start 1 --frame-end 10 --keep
 | `--follow` | off | Stream logs until the job ends |
 | `--keep` | off | Keep the uploaded source on the shelf |
 
-Blender version is currently **4.5**.
+Blender version defaults to **auto**: `fxr` reads the file header and sends `4.2`, `4.5`, `5.0`, or `5.3-alpha`. A 5.3 file needs `5.3-alpha` (Blender 4.5 cannot open it). Override with `--blender 4.2`, `--blender 4.5`, `--blender 5.0`, or `--blender 5.3`.
 
 Unlike the desktop Watch tab, the CLI does **not** default to the scene’s frame range. Always pass `--frame-start` and `--frame-end` for a sequence.
 
@@ -291,7 +363,7 @@ Exit status is `0` on success, `1` on error. Errors print to stderr as `error: �
 ## 8. Troubleshooting
 
 **`not logged in — run fxr login first`**  
-Run `fxr login` with a token from [fxrender.com](https://fxrender.com).
+On a desktop, run `fxr login` with a token from [fxrender.com](https://fxrender.com). On a server, set `FXRENDER_TOKEN` instead. There is no keyring to save into.
 
 **`404: Not Found` on `whoami` / `usage`**  
 The token is probably fine; the path is wrong or the public API is not serving `/v1/me`. Confirm with:
@@ -309,7 +381,7 @@ nginx 301’d `POST /v1/jobs` to GET `/v1/jobs/`. Current `fxr` posts to `/jobs/
 That job was submitted as PNG (older CLI default). Re-render with `--output-format exr`. For that job, `--kind converted` is the stills; there are no EXR files to fetch.
 
 **Linux: cannot save token**  
-Install/unlock GNOME Keyring or KWallet so Secret Service is available.
+A desktop needs GNOME Keyring or KWallet unlocked. A server has neither. Set `FXRENDER_TOKEN` for that process. See [Run on a server](#run-on-a-server).
 
 **Binary not found after build**  
 You ran `./target/release/fxr` from `cli/`. Use `../target/release/fxr` or build from the workspace root.
@@ -319,6 +391,8 @@ You ran `./target/release/fxr` from `cli/`. Use `../target/release/fxr` or build
 ## 9. MCP (agents / Cursor / Claude Desktop)
 
 `fxr mcp` is a **local** Model Context Protocol server on stdio. It is the right way to let an AI agent drive FXRender. It is **not** `mcp.fxrender.com` — the agent must be able to read a `.blend` on disk and write frames to a folder.
+
+Claude Desktop and Claude Code setup, including the config files and a first prompt: **[claude-mcp.md](claude-mcp.md)**.
 
 Same login as the CLI and desktop app (`fxr login`, or env `FXRENDER_TOKEN`). Do not pass the token as a tool argument.
 
@@ -391,7 +465,35 @@ Do not type into `fxr mcp` yourself — it speaks JSON-RPC on stdin/stdout. A ho
 
 ---
 
-## 10. Related
+## 10. Publish a CLI release
+
+This builds four archives and attaches them to a GitHub Release. You do not build Windows or Linux on your Mac. Pushing a version tag starts `.github/workflows/release-cli.yml`.
+
+The tag builds whatever is already on GitHub. Commit and push the CLI changes first, then:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The workflow produces:
+
+| Archive | Runs on |
+|---|---|
+| `fxr-macos-aarch64.tar.gz` | Apple Silicon Macs |
+| `fxr-macos-x86_64.tar.gz` | Intel Macs |
+| `fxr-windows-x86_64.tar.gz` | Windows 10 and 11 (`fxr.exe`) |
+| `fxr-linux-x86_64.tar.gz` | Ubuntu and Fedora on 64-bit PCs |
+
+Each archive includes `LICENSE`, this manual, and a `.sha256` file. The Linux file is one binary for both Ubuntu and Fedora. There is no separate `.deb` or `.rpm`.
+
+Watch the run under the repository **Actions** tab. When it is green, the files are on the Releases page: `https://github.com/technoblobs/fxrender-client/releases/tag/v0.1.0`.
+
+To ship a fix, bump `version` in the workspace `Cargo.toml`, commit, tag `v0.1.1`, and push that tag. Do not move an existing tag.
+
+---
+
+## 11. Related
 
 - Desktop app (Watch folders, GUI): [`../gui/README.md`](../gui/README.md)
 - Public API reference: `public_api/docs/API.md` in the FXRender server repo

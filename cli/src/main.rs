@@ -86,6 +86,9 @@ enum Command {
         samples: i64,
         #[arg(long, default_value = "cycles")]
         engine: String,
+        /// `4.2`, `4.5`, `5.0`, `5.3` / `5.3-alpha`, or `auto` (read the file header).
+        #[arg(long, default_value = "auto", visible_alias = "blender-version")]
+        blender: String,
         #[arg(long, default_value = "exr")]
         output_format: String,
         #[arg(long, default_value_t = 24)]
@@ -205,10 +208,11 @@ async fn run() -> Result<()> {
         _ => {}
     }
 
-    let cfg = store::load_config()?;
-    let token = store::get_token()?
-        .ok_or_else(|| anyhow!("not logged in — run `fxr login` first"))?;
-    let client = Client::new(cfg.api_url, token)?;
+    let api_url = store::resolve_api_url()?;
+    let token = store::resolve_token()?.ok_or_else(|| {
+        anyhow!("not logged in — run `fxr login` first, or set FXRENDER_TOKEN")
+    })?;
+    let client = Client::new(api_url, token)?;
 
     match cli.command {
         Command::Whoami => cmd_whoami(&client, cli.json).await,
@@ -243,6 +247,7 @@ async fn run() -> Result<()> {
             resolution_y,
             samples,
             engine,
+            blender,
             output_format,
             fps,
             movie,
@@ -259,6 +264,7 @@ async fn run() -> Result<()> {
                 resolution_y,
                 samples,
                 engine,
+                blender,
                 output_format,
                 fps,
                 movie,
@@ -465,6 +471,26 @@ async fn cmd_estimate(client: &Client, req: EstimateRequest, json: bool) -> Resu
     Ok(())
 }
 
+async fn resolve_blender(client: &Client, blender: &str, source: &str) -> Result<String> {
+    use fxrender_core::blender::{
+        blender_version_from_saved, normalize_blender_version, sniff_blend_file,
+    };
+    let choice = normalize_blender_version(blender).map_err(|e| anyhow!(e))?;
+    if choice != "auto" {
+        return Ok(choice);
+    }
+    let path = PathBuf::from(source);
+    if path.is_file() {
+        return Ok(sniff_blend_file(&path).unwrap_or_else(|| "4.5".into()));
+    }
+    if let Ok(id) = Uuid::parse_str(source) {
+        if let Ok(asset) = client.get_asset(id).await {
+            return Ok(blender_version_from_saved(asset.blender_saved.as_deref()));
+        }
+    }
+    Ok("4.5".into())
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn cmd_render(
     client: &Client,
@@ -476,6 +502,7 @@ async fn cmd_render(
     resolution_y: i64,
     samples: i64,
     engine: String,
+    blender: String,
     output_format: String,
     fps: i64,
     movie: bool,
@@ -497,10 +524,11 @@ async fn cmd_render(
         }
     };
 
+    let blender_version = resolve_blender(client, &blender, &source).await?;
     let req = JobCreate {
         asset_id: Some(asset_id),
         source_key: None,
-        blender_version: "4.5".to_string(),
+        blender_version,
         engine,
         device: "gpu".to_string(),
         output_format,

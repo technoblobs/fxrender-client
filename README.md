@@ -16,7 +16,7 @@ Create an account and an **API token** on [https://fxrender.com](https://fxrende
 | Path | What it is | Manual |
 |---|---|---|
 | [`core/`](core) | Shared API client (auth, assets, jobs, estimate, usage, watch engine) | — |
-| [`cli/`](cli) | `fxr` command-line tool | **[CLI documentation](cli/README.md)** — setup, compile, every command |
+| [`cli/`](cli) | `fxr` command-line tool | **[CLI documentation](cli/README.md)** — setup, compile, every command. **[Claude via MCP](cli/claude-mcp.md)** |
 | [`gui/`](gui) | Tauri 2 + React desktop app | **[Desktop user manual](gui/README.md)** — sign-in, Watch folders, build installers |
 
 ## Quick build
@@ -46,6 +46,8 @@ fxr jobs files <job-id> --download ./out
 In the desktop app: **Watch** → **Add folder** → drop a `.blend` → frames land in the output directory you chose.
 
 For AI agents (Cursor, Claude Desktop): `fxr mcp` — local MCP, same login. See [cli/README.md](cli/README.md) §9. Not a hosted `mcp.fxrender.com`.
+
+On a server, do not use `fxr login`. Export `FXRENDER_TOKEN` for the process. The keyring is only for a desktop. See [cli/README.md](cli/README.md) §4.
 
 ## License
 
