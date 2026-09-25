@@ -485,7 +485,7 @@ The workflow produces:
 | `fxr-windows-x86_64.tar.gz` | Windows 10 and 11 (`fxr.exe`) |
 | `fxr-linux-x86_64.tar.gz` | Ubuntu and Fedora on 64-bit PCs |
 
-Each archive includes `LICENSE`, this manual, and a `.sha256` file. The Linux file is one binary for both Ubuntu and Fedora. There is no separate `.deb` or `.rpm`.
+Each archive includes `LICENSE`, `CLI.md` (this manual), and a `.sha256` file. The Linux file is one binary for both Ubuntu and Fedora. There is no separate `.deb` or `.rpm`.
 
 Watch the run under the repository **Actions** tab. When it is green, the files are on the Releases page: `https://github.com/technoblobs/fxrender-client/releases/tag/v0.1.0`.
 

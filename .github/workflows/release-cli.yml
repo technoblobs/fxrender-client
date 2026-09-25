@@ -45,7 +45,8 @@ jobs:
           stage="fxr-${{ matrix.name }}"
           mkdir -p "$stage"
           cp "$src" "$stage/"
-          cp LICENSE README.md cli/README.md "$stage/"
+          cp LICENSE README.md "$stage/"
+          cp cli/README.md "$stage/CLI.md"
           tar -czf "fxr-${{ matrix.name }}.tar.gz" "$stage"
           if command -v sha256sum >/dev/null; then
             sha256sum "fxr-${{ matrix.name }}.tar.gz" > "fxr-${{ matrix.name }}.tar.gz.sha256"
