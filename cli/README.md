@@ -390,7 +390,7 @@ You ran `./target/release/fxr` from `cli/`. Use `../target/release/fxr` or build
 
 ## 9. MCP (agents / Cursor / Claude Desktop)
 
-`fxr mcp` is a **local** Model Context Protocol server on stdio. It is the right way to let an AI agent drive FXRender. It is **not** `mcp.fxrender.com` — the agent must be able to read a `.blend` on disk and write frames to a folder.
+`fxr mcp` is a local Model Context Protocol server on stdio. The agent must be able to read a `.blend` on disk and write frames to a folder.
 
 Claude Desktop and Claude Code setup, including the config files and a first prompt: **[claude-mcp.md](claude-mcp.md)**.
 
@@ -465,35 +465,7 @@ Do not type into `fxr mcp` yourself — it speaks JSON-RPC on stdin/stdout. A ho
 
 ---
 
-## 10. Publish a CLI release
-
-This builds four archives and attaches them to a GitHub Release. You do not build Windows or Linux on your Mac. Pushing a version tag starts `.github/workflows/release-cli.yml`.
-
-The tag builds whatever is already on GitHub. Commit and push the CLI changes first, then:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-The workflow produces:
-
-| Archive | Runs on |
-|---|---|
-| `fxr-macos-aarch64.tar.gz` | Apple Silicon Macs |
-| `fxr-macos-x86_64.tar.gz` | Intel Macs |
-| `fxr-windows-x86_64.tar.gz` | Windows 10 and 11 (`fxr.exe`) |
-| `fxr-linux-x86_64.tar.gz` | Ubuntu and Fedora on 64-bit PCs |
-
-Each archive includes `LICENSE`, `CLI.md` (this manual), and a `.sha256` file. The Linux file is one binary for both Ubuntu and Fedora. There is no separate `.deb` or `.rpm`.
-
-Watch the run under the repository **Actions** tab. When it is green, the files are on the Releases page: `https://github.com/technoblobs/fxrender-client/releases/tag/v0.1.0`.
-
-To ship a fix, bump `version` in the workspace `Cargo.toml`, commit, tag `v0.1.1`, and push that tag. Do not move an existing tag.
-
----
-
-## 11. Related
+## 10. Related
 
 - Desktop app (Watch folders, GUI): [`../gui/README.md`](../gui/README.md)
 - Public API reference: `public_api/docs/API.md` in the FXRender server repo

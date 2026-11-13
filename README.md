@@ -45,7 +45,7 @@ fxr jobs files <job-id> --download ./out
 
 In the desktop app: **Watch** → **Add folder** → drop a `.blend` → frames land in the output directory you chose.
 
-For AI agents (Cursor, Claude Desktop): `fxr mcp` — local MCP, same login. See [cli/README.md](cli/README.md) §9. Not a hosted `mcp.fxrender.com`.
+For AI agents (Cursor, Claude Desktop): `fxr mcp` — local MCP, same login. See [cli/README.md](cli/README.md) §9.
 
 On a server, do not use `fxr login`. Export `FXRENDER_TOKEN` for the process. The keyring is only for a desktop. See [cli/README.md](cli/README.md) §4.
 
