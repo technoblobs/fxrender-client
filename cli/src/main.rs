@@ -167,8 +167,9 @@ enum JobsCmd {
         /// Download matching files into this directory instead of just listing them.
         #[arg(long)]
         download: Option<PathBuf>,
-        /// `original` = EXR masters (falls back to converted stills if this
-        /// job never wrote EXR). Never includes the source .blend or zip.
+        /// `original` = the frames the job was rendered as: EXR masters, or
+        /// the PNG/JPEG/TIFF/WebP stills when the job was not rendered as EXR.
+        /// Never includes the source .blend or zip.
         /// `all` includes those sidecars.
         #[arg(long, default_value = "original", value_parser = ["original", "exr", "converted", "movie", "all"])]
         kind: String,
@@ -611,13 +612,19 @@ async fn cmd_jobs(client: &Client, sub: JobsCmd, json: bool) -> Result<()> {
                 return print_json(&chosen);
             }
             if chosen.is_empty() {
-                if kind == "original" || kind == "exr" {
-                    eprintln!(
-                        "no EXR originals on this job — re-render with `--output-format exr`, or pass `--kind converted`"
-                    );
+                if kind == "original" {
+                    eprintln!("No output files on this job yet. If it is still rendering, try again when it finishes.");
                 } else {
-                    eprintln!("no files matching --kind {kind}");
+                    eprintln!("No files matching --kind {kind} on this job.");
                 }
+            } else if download.is_some() {
+                let label = output_format_label(&chosen);
+                eprintln!(
+                    "Downloading {} {} file{}…",
+                    chosen.len(),
+                    label,
+                    if chosen.len() == 1 { "" } else { "s" }
+                );
             }
             for f in &chosen {
                 println!(
@@ -628,6 +635,7 @@ async fn cmd_jobs(client: &Client, sub: JobsCmd, json: bool) -> Result<()> {
                 );
                 if let Some(dir) = &download {
                     if let Some(url) = &f.download_url {
+                        eprintln!("Downloading {}", f.filename);
                         download_to(client, dir, &f.filename, url).await?;
                     }
                 }
@@ -697,16 +705,39 @@ fn select_files<'a>(files: &'a [JobFile], kind: &str) -> Result<(Vec<&'a JobFile
                 .iter()
                 .filter(|f| f.kind.eq_ignore_ascii_case("converted"))
                 .collect();
-            let note = if converted.is_empty() {
-                None
-            } else {
-                Some(
-                    "no EXR originals on this job (it was rendered as PNG/JPEG/etc.); showing converted stills. Re-render with --output-format exr for linear masters.",
-                )
-            };
+            // A job rendered as PNG/JPEG/TIFF/WebP has no EXR. Its frames are
+            // the original output, so there is nothing to warn about.
+            let note = None;
             Ok((converted, note))
         }
         other => bail!("unknown --kind {other} (original, converted, movie, all)"),
+    }
+}
+
+/// Name the file type of a selection from its extensions, e.g. "JPEG".
+/// Mixed selections (for example `--kind all`) read "mixed".
+fn output_format_label(files: &[&JobFile]) -> String {
+    let mut labels: Vec<&'static str> = Vec::new();
+    for f in files {
+        let ext = f.filename.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+        let label = match ext.as_str() {
+            "jpg" | "jpeg" => "JPEG",
+            "png" => "PNG",
+            "tif" | "tiff" => "TIFF",
+            "webp" => "WebP",
+            "exr" => "EXR",
+            "mp4" => "MP4",
+            "webm" => "WebM",
+            "mov" => "MOV",
+            _ => "output",
+        };
+        if !labels.contains(&label) {
+            labels.push(label);
+        }
+    }
+    match labels.as_slice() {
+        [one] => (*one).to_string(),
+        _ => "mixed".to_string(),
     }
 }
 
