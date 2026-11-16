@@ -1451,7 +1451,7 @@ dependencies = [
 
 [[package]]
 name = "fxr"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "clap",
@@ -1466,7 +1466,7 @@ dependencies = [
 
 [[package]]
 name = "fxrender-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "async-stream",
  "bytes",
@@ -1485,7 +1485,7 @@ dependencies = [
 
 [[package]]
 name = "fxrender-desktop"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "futures-util",
