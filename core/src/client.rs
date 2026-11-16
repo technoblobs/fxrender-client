@@ -7,6 +7,13 @@ use crate::models::*;
 
 pub const DEFAULT_BASE_URL: &str = "https://api.fxrender.com/v1";
 
+/// `User-Agent` sent on every API call, for example `fxr/0.1.0`.
+/// Nginx already stores this header, so a release can be counted from the access log.
+pub fn user_agent(product: &str) -> String {
+    let name = if product.trim().is_empty() { "fxrender" } else { product.trim() };
+    format!("{name}/{}", env!("CARGO_PKG_VERSION"))
+}
+
 // NOTE: FXRender returns `X-RateLimit-Limit` / `X-RateLimit-Remaining` /
 // `X-RateLimit-Reset` on every response (see `public_api/docs/API.md`).
 // Not surfaced yet — every method here discards headers and returns just
@@ -24,12 +31,22 @@ pub struct Client {
 
 impl Client {
     pub fn new(base_url: impl Into<String>, token: impl Into<String>) -> Result<Self> {
+        Self::with_product(base_url, token, "fxrender")
+    }
+
+    /// `product` is the program name in the `User-Agent`, such as `fxr` or `fxrender-desktop`.
+    pub fn with_product(
+        base_url: impl Into<String>,
+        token: impl Into<String>,
+        product: &str,
+    ) -> Result<Self> {
         let token = token.into();
         if token.trim().is_empty() {
             return Err(Error::MissingToken);
         }
         Ok(Self {
             http: reqwest::Client::builder()
+                .user_agent(user_agent(product))
                 // Cloudflare (or similar) 301s `/jobs` → `/jobs/`. reqwest's
                 // default policy then retries that as GET, so create-job
                 // receives the job *list* and dies with missing field `id`.
@@ -365,5 +382,18 @@ fn parse_sse_block(block: &str) -> Option<LogEvent> {
         "backlog" => serde_json::from_str::<Vec<LogLine>>(&data).ok().map(LogEvent::Backlog),
         "line" => serde_json::from_str::<LogLine>(&data).ok().map(LogEvent::Line),
         _ => Some(LogEvent::Other),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::user_agent;
+
+    #[test]
+    fn user_agent_carries_the_crate_version() {
+        let agent = user_agent("fxr");
+        assert!(agent.starts_with("fxr/"));
+        assert!(agent.ends_with(env!("CARGO_PKG_VERSION")));
+        assert_eq!(user_agent("  "), format!("fxrender/{}", env!("CARGO_PKG_VERSION")));
     }
 }

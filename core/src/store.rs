@@ -128,5 +128,5 @@ pub fn delete_token() -> Result<()> {
 pub fn load_client() -> Result<crate::Client> {
     let cfg = load_config()?;
     let token = get_token()?.ok_or(Error::MissingToken)?;
-    crate::Client::new(cfg.api_url, token)
+    crate::Client::with_product(cfg.api_url, token, "fxrender-desktop")
 }

@@ -46,9 +46,9 @@ enum Command {
     /// Upload a .blend/.zip file and register it (does not render it).
     Upload {
         file: PathBuf,
-        /// Keep it on the shelf like a web upload — by default, API
-        /// uploads are ephemeral (not listed, deleted after a grace
-        /// period once any job using them finishes).
+        /// Keep it on the shelf like a web upload (30 days after its last
+        /// render). Without --keep the upload is temporary: not listed, and
+        /// deleted 24 hours after the last render that used it finishes.
         #[arg(long)]
         keep: bool,
     },
@@ -86,7 +86,7 @@ enum Command {
         samples: i64,
         #[arg(long, default_value = "cycles")]
         engine: String,
-        /// `4.2`, `4.5`, `5.0`, `5.3` / `5.3-alpha`, or `auto` (read the file header).
+        /// `4.2`, `4.5`, `5.0`, `5.3`, `5.3-alpha`, or `auto` (read the file header).
         #[arg(long, default_value = "auto", visible_alias = "blender-version")]
         blender: String,
         #[arg(long, default_value = "exr")]
@@ -99,9 +99,11 @@ enum Command {
         /// Stream logs until the job reaches a terminal status.
         #[arg(long)]
         follow: bool,
-        /// Keep the uploaded source on the shelf instead of the default
-        /// ephemeral (not listed, deleted after a grace period) behavior.
-        /// No effect when `source` is already an asset id.
+        /// Keep the uploaded source on the shelf (30 days after its last
+        /// render) instead of the default temporary upload, which is deleted
+        /// 24 hours after its last render finishes. Render output is kept 30
+        /// days from job creation either way. No effect when `source` is
+        /// already an asset id.
         #[arg(long)]
         keep: bool,
     },
@@ -212,7 +214,7 @@ async fn run() -> Result<()> {
     let token = store::resolve_token()?.ok_or_else(|| {
         anyhow!("not logged in — run `fxr login` first, or set FXRENDER_TOKEN")
     })?;
-    let client = Client::new(api_url, token)?;
+    let client = Client::with_product(api_url, token, "fxr")?;
 
     match cli.command {
         Command::Whoami => cmd_whoami(&client, cli.json).await,

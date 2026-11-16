@@ -276,7 +276,9 @@ fxr render <asset-id> --frame-start 1 --frame-end 10 --keep
 | `--follow` | off | Stream logs until the job ends |
 | `--keep` | off | Keep the uploaded source on the shelf |
 
-Blender version defaults to **auto**: `fxr` reads the file header and sends `4.2`, `4.5`, `5.0`, or `5.3-alpha`. A 5.3 file needs `5.3-alpha` (Blender 4.5 cannot open it). Override with `--blender 4.2`, `--blender 4.5`, `--blender 5.0`, or `--blender 5.3`.
+Blender version defaults to **auto**: `fxr` reads the file header and sends `4.2`, `4.5`, `5.0`, or `5.3`. A 5.3 file is sent as `5.3`. Pass `--blender 5.3-alpha` for an alpha build. Override with `--blender 4.2`, `--blender 4.5`, `--blender 5.0`, `--blender 5.3`, or `--blender 5.3-alpha`.
+
+5.3 Alpha leaves FXRender at the end of November 2026. Use `--blender 5.3` after that.
 
 Unlike the desktop Watch tab, the CLI does **not** default to the scene’s frame range. Always pass `--frame-start` and `--frame-end` for a sequence.
 

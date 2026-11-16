@@ -23,5 +23,5 @@ pub mod models;
 pub mod store;
 pub mod watch;
 
-pub use client::{Client, LogEvent, UploadedAsset, DEFAULT_BASE_URL};
+pub use client::{user_agent, Client, LogEvent, UploadedAsset, DEFAULT_BASE_URL};
 pub use error::{Error, Result};

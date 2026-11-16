@@ -682,7 +682,8 @@ function SpecFields({
             <option value="4.2">4.2</option>
             <option value="4.5">4.5</option>
             <option value="5.2">5.2</option>
-            <option value="5.3-alpha">blender-5.3-alpha</option>
+            <option value="5.3">5.3</option>
+            <option value="5.3-alpha">5.3 Alpha</option>
           </select>
         </div>
         <div className="field">

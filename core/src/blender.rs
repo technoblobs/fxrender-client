@@ -1,4 +1,4 @@
-//! Blender versions the public API accepts: 4.2, 4.5, 5.0, and 5.3-alpha.
+//! Blender versions the public API accepts: 4.2, 4.5, 5.0, 5.3, and 5.3-alpha.
 
 use std::fs::File;
 use std::io::Read;
@@ -11,16 +11,17 @@ pub fn normalize_blender_version(raw: &str) -> Result<String, String> {
     let s = raw.trim().to_ascii_lowercase();
     let s = s.strip_prefix("blender-").unwrap_or(&s);
     let s = s.strip_prefix("blender").unwrap_or(s).trim_start_matches(['-', ' ']);
+    if s.contains("5.3") && s.contains("alpha") {
+        return Ok("5.3-alpha".into());
+    }
     match s {
         "4.2" | "4.2lts" | "4.2-lts" => Ok("4.2".into()),
         "4.5" | "4.5lts" | "4.5-lts" => Ok("4.5".into()),
         "5.0" | "5" => Ok("5.0".into()),
-        "5.3" | "5.3-alpha" | "5.3.0" | "5.3.0-alpha" | "5.3alpha" | "5.3_alpha" => {
-            Ok("5.3-alpha".into())
-        }
+        "5.3" | "5.3.0" => Ok("5.3".into()),
         "auto" => Ok("auto".into()),
         other => Err(format!(
-            "unknown Blender version `{other}` — use 4.2, 4.5, 5.0, 5.3-alpha, or auto"
+            "unknown Blender version `{other}` — use 4.2, 4.5, 5.0, 5.3, 5.3-alpha, or auto"
         )),
     }
 }
@@ -29,8 +30,10 @@ pub fn normalize_blender_version(raw: &str) -> Result<String, String> {
 /// stay on 4.5, which is what the API uses when a client omits the field.
 pub fn blender_version_from_saved(saved: Option<&str>) -> String {
     let s = saved.unwrap_or("").trim().to_ascii_lowercase();
-    if s.contains("5.3") {
+    if s.contains("5.3") && s.contains("alpha") {
         "5.3-alpha".into()
+    } else if s.contains("5.3") {
+        "5.3".into()
     } else if s.starts_with("5.0") || s == "5" {
         "5.0".into()
     } else if s.contains("4.2") {
@@ -71,7 +74,7 @@ pub fn version_from_header(buf: &[u8]) -> Option<&'static str> {
         b"402" => Some("4.2"),
         b"405" | b"450" => Some("4.5"),
         b"500" => Some("5.0"),
-        b"503" => Some("5.3-alpha"),
+        b"503" => Some("5.3"),
         _ => None,
     }
 }
@@ -82,7 +85,8 @@ mod tests {
 
     #[test]
     fn aliases() {
-        assert_eq!(normalize_blender_version("5.3").unwrap(), "5.3-alpha");
+        assert_eq!(normalize_blender_version("5.3").unwrap(), "5.3");
+        assert_eq!(normalize_blender_version("5.3.0").unwrap(), "5.3");
         assert_eq!(normalize_blender_version("blender-5.3-alpha").unwrap(), "5.3-alpha");
         assert_eq!(normalize_blender_version("4.5").unwrap(), "4.5");
         assert_eq!(normalize_blender_version("5.0").unwrap(), "5.0");
@@ -96,15 +100,16 @@ mod tests {
         classic[9..12].copy_from_slice(b"503");
         // pointer/endian still classic; version digits overwritten above only if layout matches.
         let mut file = *b"BLENDER-v503....";
-        assert_eq!(version_from_header(&file), Some("5.3-alpha"));
+        assert_eq!(version_from_header(&file), Some("5.3"));
         file = *b"BLENDER17-v503..";
-        assert_eq!(version_from_header(&file), Some("5.3-alpha"));
+        assert_eq!(version_from_header(&file), Some("5.3"));
         let _ = classic;
     }
 
     #[test]
     fn saved_string() {
         assert_eq!(blender_version_from_saved(Some("5.3.0 Alpha")), "5.3-alpha");
+        assert_eq!(blender_version_from_saved(Some("5.3.0")), "5.3");
         assert_eq!(blender_version_from_saved(Some("4.2")), "4.2");
         assert_eq!(blender_version_from_saved(None), "4.5");
     }

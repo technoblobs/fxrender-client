@@ -133,7 +133,7 @@ Poll job_status until it finishes, then download_job into /Users/me/Downloads/mc
 
 ## Limits
 
-- `render_file` accepts `blender_version`: `4.2`, `4.5`, `5.0`, or `5.3-alpha` (`5.3` is the same as `5.3-alpha`). If you omit it, `fxr` reads the file header. A file saved by Blender 5.3 must use `5.3-alpha`.
+- `render_file` accepts `blender_version`: `4.2`, `4.5`, `5.0`, `5.3`, or `5.3-alpha`. If you omit it, `fxr` reads the file header and sends `5.3` for a 5.3 file. Pass `5.3-alpha` only for an alpha build. 5.3 Alpha leaves FXRender at the end of November 2026.
 - Engine defaults to **Cycles**. Pass `engine: eevee` only when you want Eevee.
 - If you omit the frame range, `render_file` renders the whole scene range from inspect, not a single frame. Say the frame numbers in the prompt.
 - Default output is EXR. Ask for `png`, `jpeg`, `tiff`, or `webp` when you want those. Download TIFF/PNG/JPEG with `kind` `converted`. EXR is `kind` `original`.

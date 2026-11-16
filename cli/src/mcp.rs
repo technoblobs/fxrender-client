@@ -24,8 +24,8 @@ the user signs in with `fxr login` (or FXRENDER_TOKEN). \
 Workflow: whoami → estimate (optional) → render_file (returns a job_id, does not wait) → \
 job_status every 5+ seconds until status is completed → download_job to a local folder. \
 render_file reads a local .blend/.zip path (or an existing asset_id). \
-blender_version may be 4.2, 4.5, 5.0, or 5.3-alpha. Omit it to read the file header \
-(5.3 files need 5.3-alpha; Blender 4.5 cannot open them). \
+blender_version may be 4.2, 4.5, 5.0, 5.3, or 5.3-alpha. Omit it to read the file header \
+(a 5.3 file is sent as 5.3; pass 5.3-alpha only for an alpha build). \
 Default output is EXR (linear original). PNG/JPEG/etc. are converted stills, not masters. \
 download_job kind=original never includes the source .blend. \
 Renders spend GPU time on the user's account — check whoami remaining_seconds first. \
@@ -114,7 +114,7 @@ impl FxrenderMcp {
     }
 
     #[tool(
-        description = "Upload a local .blend/.zip (or reuse asset_id) and submit a render job. Returns job_id immediately — does not wait for the farm. Poll job_status until completed, then download_job. If frame_start/frame_end are omitted, uses the scene range from inspect. blender_version: 4.2, 4.5, 5.0, or 5.3-alpha; omit to use the file header. Default format is exr (originals). Engine defaults to cycles."
+        description = "Upload a local .blend/.zip (or reuse asset_id) and submit a render job. Returns job_id immediately — does not wait for the farm. Poll job_status until completed, then download_job. If frame_start/frame_end are omitted, uses the scene range from inspect. blender_version: 4.2, 4.5, 5.0, 5.3, or 5.3-alpha; omit to use the file header. Default format is exr (originals). Engine defaults to cycles."
     )]
     async fn render_file(&self, Parameters(p): Parameters<RenderArgs>) -> Result<String, String> {
         let client = api_client()?;
@@ -387,7 +387,7 @@ struct RenderArgs {
     samples: Option<i64>,
     /// cycles (default) or eevee.
     engine: Option<String>,
-    /// 4.2, 4.5, 5.0, or 5.3-alpha. Omit to read the .blend header.
+    /// 4.2, 4.5, 5.0, 5.3, or 5.3-alpha. Omit to read the .blend header.
     blender_version: Option<String>,
     /// exr (original, default), png, jpeg, tiff, webp.
     output_format: Option<String>,
@@ -470,7 +470,7 @@ fn api_client() -> Result<Client, String> {
             "not logged in — run `fxr login` with a token from https://fxrender.com (API Tokens), or set FXRENDER_TOKEN".to_string()
         })?;
     let api_url = store::resolve_api_url().map_err(|e| e.to_string())?;
-    Client::new(api_url, token).map_err(err)
+    Client::with_product(api_url, token, "fxr").map_err(err)
 }
 
 async fn resolve_asset(
